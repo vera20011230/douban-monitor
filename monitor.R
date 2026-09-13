@@ -3,11 +3,11 @@ library(rvest)
 library(stringr)
 library(dplyr)
 
-# ==============================
-# 豆瓣小组配置
-# ==============================
+# ==========================================
+# 豆瓣小组关键词监控 - GitHub Actions 云端版
+# ==========================================
 
-GROUP_URLS <- c(
+group_urls <- c(
   "https://www.douban.com/group/751504/",
   "https://www.douban.com/group/661193/",
   "https://www.douban.com/group/629678/",
@@ -16,234 +16,211 @@ GROUP_URLS <- c(
   "https://www.douban.com/group/713320/"
 )
 
-# 关键词
-KEYWORDS <- c(
+keywords <- c(
   "🐮", "牛", "张凌赫", "凌赫", "zlh", "ZLH",
   "煮鱼", "逐玉", "褶", "过火", "秒火", "这一秒",
   "🐌", "众星", "众⭐️", "归鸾", "刺棠"
 )
 
-# ==============================
-# 获取豆瓣小组帖子
-# ==============================
+seen_file <- "seen_posts.txt"
 
-get_group_posts <- function(group_url) {
+cat("======================================\n")
+cat("豆瓣监控云端版\n")
+cat("======================================\n\n")
 
-  ua <- paste(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    "AppleWebKit/537.36 (KHTML, like Gecko)",
-    "Chrome/153.0.0.0 Safari/537.36"
-  )
+# ------------------------------------------
+# 读取已经处理过的帖子 ID
+# ------------------------------------------
 
-  response <- tryCatch(
-    GET(
-      group_url,
-      user_agent(ua),
+if (file.exists(seen_file)) {
+  seen_posts <- readLines(seen_file, warn = FALSE)
+  seen_posts <- unique(seen_posts[nchar(seen_posts) > 0])
+} else {
+  seen_posts <- character(0)
+}
+
+cat("历史已记录帖子数量：", length(seen_posts), "\n\n")
+
+# ------------------------------------------
+# 抓取单个小组
+# ------------------------------------------
+
+get_group_posts <- function(url) {
+
+  tryCatch({
+
+    response <- GET(
+      url,
+      add_headers(
+        `User-Agent` =
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0 Safari/537.36"
+      ),
       timeout(30)
-    ),
-    error = function(e) NULL
-  )
-
-  if (is.null(response) || http_error(response)) {
-    message("❌ 无法访问：", group_url)
-    return(data.frame(
-      post_id = character(),
-      title = character(),
-      link = character(),
-      author = character(),
-      time = character(),
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  message("✅ 成功访问：", group_url)
-
-  page <- tryCatch(
-    read_html(response),
-    error = function(e) NULL
-  )
-
-  if (is.null(page)) {
-    message("❌ 页面解析失败")
-    return(data.frame(
-      post_id = character(),
-      title = character(),
-      link = character(),
-      author = character(),
-      time = character(),
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  rows <- page %>% html_nodes("#content .olt tr")
-
-  if (length(rows) == 0) {
-    message("⚠️ 没有找到帖子列表")
-    return(data.frame(
-      post_id = character(),
-      title = character(),
-      link = character(),
-      author = character(),
-      time = character(),
-      stringsAsFactors = FALSE
-    ))
-  }
-
-  out <- lapply(rows, function(r) {
-
-    a <- r %>% html_node("td.title a")
-
-    if (is.null(a)) {
-      return(NULL)
-    }
-
-    title <- a %>%
-      html_text() %>%
-      str_trim()
-
-    link <- html_attr(a, "href")
-
-    post_id <- str_extract(
-      link,
-      "\\d+"
     )
 
-    author_node <- r %>%
-      html_node("td:nth-child(3) a")
-
-    time_node <- r %>%
-      html_node("td.time")
-
-    author <- if (!is.null(author_node)) {
-      html_text(author_node) %>% str_trim()
-    } else {
-      ""
+    if (status_code(response) != 200) {
+      cat("❌ 访问失败：", url,
+          " HTTP ", status_code(response), "\n")
+      return(data.frame())
     }
 
-    time <- if (!is.null(time_node)) {
-      html_text(time_node) %>% str_trim()
-    } else {
-      ""
+    cat("✅ 成功访问：", url, "\n")
+
+    page <- read_html(content(response, as = "text", encoding = "UTF-8"))
+
+    rows <- page %>%
+      html_elements("#content .olt tr")
+
+    if (length(rows) == 0) {
+      cat("⚠️ 未解析到帖子：", url, "\n")
+      return(data.frame())
     }
 
-    data.frame(
-      post_id = post_id,
-      title = title,
-      link = link,
-      author = author,
-      time = time,
-      stringsAsFactors = FALSE
-    )
-  }) %>%
-    bind_rows()
+    posts <- lapply(rows, function(row) {
 
-  out
+      link_node <- row %>%
+        html_element("td.title a")
+
+      if (length(link_node) == 0) {
+        return(NULL)
+      }
+
+      title <- html_text2(link_node)
+
+      link <- html_attr(link_node, "href")
+
+      post_id <- str_extract(
+        link,
+        "(?<=/topic/)\\d+"
+      )
+
+      if (is.na(post_id)) {
+        return(NULL)
+      }
+
+      author <- row %>%
+        html_element("td.author") %>%
+        html_text2()
+
+      post_time <- row %>%
+        html_element("td.time") %>%
+        html_text2()
+
+      data.frame(
+        post_id = post_id,
+        title = title,
+        link = link,
+        author = author,
+        time = post_time,
+        stringsAsFactors = FALSE
+      )
+    })
+
+    posts <- Filter(Negate(is.null), posts)
+
+    if (length(posts) == 0) {
+      return(data.frame())
+    }
+
+    bind_rows(posts)
+
+  }, error = function(e) {
+
+    cat("❌ 抓取异常：", url, "\n")
+    cat("错误信息：", conditionMessage(e), "\n")
+
+    return(data.frame())
+  })
 }
 
-# ==============================
-# 获取全部小组帖子
-# ==============================
+# ------------------------------------------
+# 抓取全部小组
+# ------------------------------------------
 
-get_all_posts <- function(urls) {
+all_posts <- bind_rows(
+  lapply(group_urls, get_group_posts)
+)
 
-  all_df <- lapply(
-    urls,
-    get_group_posts
-  ) %>%
-    bind_rows()
+cat("\n======================================\n")
+cat("本次获取帖子数量：", nrow(all_posts), "\n")
+cat("======================================\n\n")
 
-  if (
-    nrow(all_df) == 0 ||
-    !"post_id" %in% colnames(all_df)
-  ) {
-    return(data.frame(
-      post_id = character(),
-      title = character(),
-      link = character(),
-      author = character(),
-      time = character(),
-      stringsAsFactors = FALSE
-    ))
-  }
+if (nrow(all_posts) == 0) {
 
-  distinct(
-    all_df,
-    post_id,
-    .keep_all = TRUE
-  )
+  cat("⚠️ 本次没有获取到帖子。\n")
+  quit(save = "no", status = 0)
 }
 
-# ==============================
-# 开始测试
-# ==============================
+# ------------------------------------------
+# 只保留“新帖子”
+# ------------------------------------------
 
-message("======================================")
-message("豆瓣监控云端测试")
-message("======================================")
+new_posts <- all_posts %>%
+  filter(!post_id %in% seen_posts) %>%
+  distinct(post_id, .keep_all = TRUE)
 
-current <- get_all_posts(GROUP_URLS)
+cat("本次新帖子数量：", nrow(new_posts), "\n")
 
-message("")
-message("获取到帖子数量：", nrow(current))
+# ------------------------------------------
+# 关键词匹配
+# ------------------------------------------
 
-if (nrow(current) > 0) {
+if (nrow(new_posts) > 0) {
 
-  keyword_regex <- paste(
-    sapply(KEYWORDS, str_escape),
+  pattern <- paste(
+    str_replace_all(keywords, "([\\^$.|?*+(){}\\[\\]])", "\\\\\\1"),
     collapse = "|"
   )
 
-  found <- current %>%
+  matched_posts <- new_posts %>%
     filter(
       str_detect(
         title,
-        keyword_regex
+        regex(pattern, ignore_case = FALSE)
       )
     )
 
-  message(
-    "匹配关键词的帖子数量：",
-    nrow(found)
-  )
+} else {
 
-  if (nrow(found) > 0) {
+  matched_posts <- data.frame()
+}
 
-    message("")
-    message("🚨 找到匹配帖子：")
-    message("--------------------------------------")
+cat("新帖子中匹配关键词数量：",
+    nrow(matched_posts), "\n\n")
 
-    for (i in seq_len(nrow(found))) {
+# ------------------------------------------
+# 输出匹配结果
+# ------------------------------------------
 
-      post <- found[i, ]
+if (nrow(matched_posts) > 0) {
 
-      message(
-        "标题：",
-        post$title
-      )
+  cat("🚨 发现新的关键词帖子：\n\n")
 
-      message(
-        "链接：",
-        post$link
-      )
+  for (i in seq_len(nrow(matched_posts))) {
 
-      message(
-        "作者：",
-        post$author
-      )
-
-      message(
-        "时间：",
-        post$time
-      )
-
-      message("--------------------------------------")
-    }
+    cat("--------------------------------------\n")
+    cat("标题：", matched_posts$title[i], "\n")
+    cat("链接：", matched_posts$link[i], "\n")
+    cat("作者：", matched_posts$author[i], "\n")
+    cat("时间：", matched_posts$time[i], "\n")
+    cat("--------------------------------------\n\n")
   }
 
 } else {
 
-  message("⚠️ 没有获取到任何帖子")
+  cat("本次没有新的关键词帖子。\n")
 }
 
-message("")
-message("测试结束。")
+# ------------------------------------------
+# 更新历史记录
+# ------------------------------------------
+
+all_seen <- unique(c(
+  seen_posts,
+  all_posts$post_id
+))
+
+writeLines(all_seen, seen_file)
+
+cat("历史记录已更新：", length(all_seen), " 个帖子 ID\n")
+cat("\n测试结束。\n")
