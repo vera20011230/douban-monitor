@@ -39,7 +39,11 @@ if (file.exists(seen_file)) {
   seen_posts <- character(0)
 }
 
-cat("历史已记录帖子数量：", length(seen_posts), "\n\n")
+cat(
+  "历史已记录帖子数量：",
+  length(seen_posts),
+  "\n\n"
+)
 
 # ------------------------------------------
 # 抓取单个小组
@@ -59,6 +63,7 @@ get_group_posts <- function(url) {
     )
 
     if (status_code(response) != 200) {
+
       cat(
         "❌ 访问失败：",
         url,
@@ -66,64 +71,88 @@ get_group_posts <- function(url) {
         status_code(response),
         "\n"
       )
+
       return(data.frame())
     }
 
-    cat("✅ 成功访问：", url, "\n")
+    cat(
+      "✅ 成功访问：",
+      url,
+      "\n"
+    )
 
     page <- read_html(
-      content(response, as = "text", encoding = "UTF-8")
+      content(
+        response,
+        as = "text",
+        encoding = "UTF-8"
+      )
     )
 
     rows <- page %>%
       html_elements("#content .olt tr")
 
     if (length(rows) == 0) {
-      cat("⚠️ 未解析到帖子：", url, "\n")
+
+      cat(
+        "⚠️ 未解析到帖子：",
+        url,
+        "\n"
+      )
+
       return(data.frame())
     }
 
-    posts <- lapply(rows, function(row) {
+    posts <- lapply(
+      rows,
+      function(row) {
 
-      link_node <- row %>%
-        html_element("td.title a")
+        link_node <- row %>%
+          html_element("td.title a")
 
-      if (length(link_node) == 0) {
-        return(NULL)
+        if (length(link_node) == 0) {
+          return(NULL)
+        }
+
+        title <- html_text2(link_node)
+
+        link <- html_attr(
+          link_node,
+          "href"
+        )
+
+        post_id <- str_extract(
+          link,
+          "(?<=/topic/)\\d+"
+        )
+
+        if (is.na(post_id)) {
+          return(NULL)
+        }
+
+        author <- row %>%
+          html_element("td.author") %>%
+          html_text2()
+
+        post_time <- row %>%
+          html_element("td.time") %>%
+          html_text2()
+
+        data.frame(
+          post_id = post_id,
+          title = title,
+          link = link,
+          author = author,
+          time = post_time,
+          stringsAsFactors = FALSE
+        )
       }
+    )
 
-      title <- html_text2(link_node)
-
-      link <- html_attr(link_node, "href")
-
-      post_id <- str_extract(
-        link,
-        "(?<=/topic/)\\d+"
-      )
-
-      if (is.na(post_id)) {
-        return(NULL)
-      }
-
-      author <- row %>%
-        html_element("td.author") %>%
-        html_text2()
-
-      post_time <- row %>%
-        html_element("td.time") %>%
-        html_text2()
-
-      data.frame(
-        post_id = post_id,
-        title = title,
-        link = link,
-        author = author,
-        time = post_time,
-        stringsAsFactors = FALSE
-      )
-    })
-
-    posts <- Filter(Negate(is.null), posts)
+    posts <- Filter(
+      Negate(is.null),
+      posts
+    )
 
     if (length(posts) == 0) {
       return(data.frame())
@@ -133,8 +162,17 @@ get_group_posts <- function(url) {
 
   }, error = function(e) {
 
-    cat("❌ 抓取异常：", url, "\n")
-    cat("错误信息：", conditionMessage(e), "\n")
+    cat(
+      "❌ 抓取异常：",
+      url,
+      "\n"
+    )
+
+    cat(
+      "错误信息：",
+      conditionMessage(e),
+      "\n"
+    )
 
     return(data.frame())
   })
@@ -145,17 +183,32 @@ get_group_posts <- function(url) {
 # ------------------------------------------
 
 all_posts <- bind_rows(
-  lapply(group_urls, get_group_posts)
+  lapply(
+    group_urls,
+    get_group_posts
+  )
 )
 
 cat("\n======================================\n")
-cat("本次获取帖子数量：", nrow(all_posts), "\n")
+
+cat(
+  "本次获取帖子数量：",
+  nrow(all_posts),
+  "\n"
+)
+
 cat("======================================\n\n")
 
 if (nrow(all_posts) == 0) {
 
-  cat("⚠️ 本次没有获取到帖子。\n")
-  quit(save = "no", status = 0)
+  cat(
+    "⚠️ 本次没有获取到帖子。\n"
+  )
+
+  quit(
+    save = "no",
+    status = 0
+  )
 }
 
 # ------------------------------------------
@@ -163,10 +216,19 @@ if (nrow(all_posts) == 0) {
 # ------------------------------------------
 
 new_posts <- all_posts %>%
-  filter(!post_id %in% seen_posts) %>%
-  distinct(post_id, .keep_all = TRUE)
+  filter(
+    !post_id %in% seen_posts
+  ) %>%
+  distinct(
+    post_id,
+    .keep_all = TRUE
+  )
 
-cat("本次新帖子数量：", nrow(new_posts), "\n")
+cat(
+  "本次新帖子数量：",
+  nrow(new_posts),
+  "\n"
+)
 
 # ------------------------------------------
 # 关键词匹配
@@ -187,7 +249,10 @@ if (nrow(new_posts) > 0) {
     filter(
       str_detect(
         title,
-        regex(pattern, ignore_case = FALSE)
+        regex(
+          pattern,
+          ignore_case = FALSE
+        )
       )
     )
 
@@ -203,43 +268,109 @@ cat(
 )
 
 # ------------------------------------------
-# 输出匹配结果 + Server酱通知
+# 输出匹配结果 + 19 个 Server酱通知
 # ------------------------------------------
 
 if (nrow(matched_posts) > 0) {
 
-  cat("🚨 发现新的关键词帖子：\n\n")
+  cat(
+    "🚨 发现新的关键词帖子：\n\n"
+  )
 
   for (i in seq_len(nrow(matched_posts))) {
 
-    cat("--------------------------------------\n")
-    cat("标题：", matched_posts$title[i], "\n")
-    cat("链接：", matched_posts$link[i], "\n")
-    cat("作者：", matched_posts$author[i], "\n")
-    cat("时间：", matched_posts$time[i], "\n")
-    cat("--------------------------------------\n\n")
+    cat(
+      "--------------------------------------\n"
+    )
+
+    cat(
+      "标题：",
+      matched_posts$title[i],
+      "\n"
+    )
+
+    cat(
+      "链接：",
+      matched_posts$link[i],
+      "\n"
+    )
+
+    cat(
+      "作者：",
+      matched_posts$author[i],
+      "\n"
+    )
+
+    cat(
+      "时间：",
+      matched_posts$time[i],
+      "\n"
+    )
+
+    cat(
+      "--------------------------------------\n\n"
+    )
   }
 
   # ----------------------------------------
-  # Server酱通知
+  # 读取 19 个 Server酱 SendKey
   # ----------------------------------------
 
-  sendkey <- Sys.getenv("SERVERCHAN_SENDKEY")
+  sendkey_names <- c(
+    "SERVERCHAN_SENDKEY",
+    paste0(
+      "SERVERCHAN_SENDKEY_",
+      2:19
+    )
+  )
 
-  if (sendkey == "") {
+  sendkeys <- Sys.getenv(
+    sendkey_names,
+    unset = ""
+  )
 
-    cat("⚠️ 未找到 SERVERCHAN_SENDKEY，跳过通知。\n")
+  valid_sendkeys <- sendkeys[
+    nchar(
+      trimws(sendkeys)
+    ) > 0
+  ]
+
+  cat(
+    "📱 已找到 ",
+    length(valid_sendkeys),
+    " 个 Server酱 SendKey\n",
+    sep = ""
+  )
+
+  if (length(valid_sendkeys) == 0) {
+
+    cat(
+      "⚠️ 没有找到任何 Server酱 SendKey，跳过通知。\n"
+    )
 
   } else {
 
-    cat("📨 正在发送 Server酱通知...\n")
+    cat(
+      "📨 开始发送 Server酱通知...\n\n"
+    )
+
+    # --------------------------------------
+    # 对每一条匹配帖子发送通知
+    # --------------------------------------
 
     for (i in seq_len(nrow(matched_posts))) {
 
+      # ------------------------------------
+      # Server酱顶部标题
+      # ------------------------------------
+
       title <- paste0(
-        "豆瓣关键词：",
-        matched_posts$title[i]
+        "db发现匹配关键词的帖子！注意发帖时间哦"
       )
+
+      # ------------------------------------
+      # Server酱正文
+      # ------------------------------------
 
       desp <- paste0(
         "**标题：** ",
@@ -255,49 +386,67 @@ if (nrow(matched_posts) > 0) {
         matched_posts$link[i]
       )
 
-      # Server酱正确接口：
-      # https://sctapi.ftqq.com/{SendKey}.send
+      # --------------------------------------
+      # 依次发送给全部 SendKey
+      # --------------------------------------
 
-      api_url <- paste0(
-        "https://sctapi.ftqq.com/",
-        sendkey,
-        ".send"
-      )
+      for (j in seq_along(valid_sendkeys)) {
 
-      result <- tryCatch({
-
-        response <- POST(
-          api_url,
-          body = list(
-            title = title,
-            desp = desp
-          ),
-          encode = "form",
-          timeout(30)
+        api_url <- paste0(
+          "https://sctapi.ftqq.com/",
+          valid_sendkeys[j],
+          ".send"
         )
 
-        content(
-          response,
-          as = "text",
-          encoding = "UTF-8"
+        result <- tryCatch({
+
+          response <- POST(
+            api_url,
+            body = list(
+              title = title,
+              desp = desp
+            ),
+            encode = "form",
+            timeout(30)
+          )
+
+          content(
+            response,
+            as = "text",
+            encoding = "UTF-8"
+          )
+
+        }, error = function(e) {
+
+          paste0(
+            "发送异常：",
+            conditionMessage(e)
+          )
+        })
+
+        cat(
+          "SendKey ",
+          j,
+          "/",
+          length(valid_sendkeys),
+          "：",
+          result,
+          "\n",
+          sep = ""
         )
-
-      }, error = function(e) {
-
-        paste0(
-          "发送异常：",
-          conditionMessage(e)
-        )
-
-      })
-
-      cat("Server酱返回：", result, "\n")
+      }
     }
+
+    cat(
+      "\n✅ 全部 Server酱通知发送完成。\n"
+    )
   }
 
 } else {
 
-  cat("本次没有新的关键词帖子。\n")
+  cat(
+    "本次没有新的关键词帖子。\n"
+  )
 }
 
 # ------------------------------------------
@@ -322,4 +471,6 @@ cat(
   " 个帖子 ID\n"
 )
 
-cat("\n测试结束。\n")
+cat(
+  "\n测试结束。\n"
+)
