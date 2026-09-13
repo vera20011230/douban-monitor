@@ -1,3 +1,4 @@
+```r
 library(httr)
 library(rvest)
 library(stringr)
@@ -59,8 +60,13 @@ get_group_posts <- function(url) {
     )
 
     if (status_code(response) != 200) {
-      cat("❌ 访问失败：", url,
-          " HTTP ", status_code(response), "\n")
+      cat(
+        "❌ 访问失败：",
+        url,
+        " HTTP ",
+        status_code(response),
+        "\n"
+      )
       return(data.frame())
     }
 
@@ -88,6 +94,7 @@ get_group_posts <- function(url) {
       }
 
       title <- html_text2(link_node)
+
       link <- html_attr(link_node, "href")
 
       post_id <- str_extract(
@@ -197,7 +204,7 @@ cat(
 )
 
 # ------------------------------------------
-# 输出匹配结果
+# 输出匹配结果 + Server酱通知
 # ------------------------------------------
 
 if (nrow(matched_posts) > 0) {
@@ -236,18 +243,33 @@ if (nrow(matched_posts) > 0) {
       )
 
       desp <- paste0(
-        "**标题：** ", matched_posts$title[i], "\n\n",
-        "**作者：** ", matched_posts$author[i], "\n\n",
-        "**时间：** ", matched_posts$time[i], "\n\n",
-        "**链接：** ", matched_posts$link[i]
+        "**标题：** ",
+        matched_posts$title[i],
+        "\n\n",
+        "**作者：** ",
+        matched_posts$author[i],
+        "\n\n",
+        "**时间：** ",
+        matched_posts$time[i],
+        "\n\n",
+        "**链接：** ",
+        matched_posts$link[i]
+      )
+
+      # Server酱正确接口：
+      # https://sctapi.ftqq.com/{SendKey}.send
+
+      api_url <- paste0(
+        "https://sctapi.ftqq.com/",
+        sendkey,
+        ".send"
       )
 
       result <- tryCatch({
 
         response <- POST(
-          "https://sctapi.ftqq.com/",
+          api_url,
           body = list(
-            sendkey = sendkey,
             title = title,
             desp = desp
           ),
@@ -255,11 +277,18 @@ if (nrow(matched_posts) > 0) {
           timeout(30)
         )
 
-        content(response, as = "text", encoding = "UTF-8")
+        content(
+          response,
+          as = "text",
+          encoding = "UTF-8"
+        )
 
       }, error = function(e) {
 
-        paste0("发送异常：", conditionMessage(e))
+        paste0(
+          "发送异常：",
+          conditionMessage(e)
+        )
 
       })
 
