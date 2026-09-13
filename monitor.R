@@ -1,4 +1,3 @@
-```r
 library(httr)
 library(rvest)
 library(stringr)
@@ -324,4 +323,3 @@ cat(
 )
 
 cat("\n测试结束。\n")
-```
