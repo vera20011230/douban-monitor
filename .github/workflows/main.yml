@@ -1,3 +1,4 @@
+```yaml
 name: Douban Monitor
 
 on:
@@ -29,6 +30,8 @@ jobs:
             any::dplyr
 
       - name: Run Douban monitor
+        env:
+          SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
         run: Rscript monitor.R
 
       - name: Save seen posts
@@ -44,3 +47,4 @@ jobs:
             git commit -m "Update seen posts"
             git push
           fi
+```
