@@ -31,6 +31,24 @@ jobs:
       - name: Run Douban monitor
         env:
           SERVERCHAN_SENDKEY: ${{ secrets.SERVERCHAN_SENDKEY }}
+          SERVERCHAN_SENDKEY_2: ${{ secrets.SERVERCHAN_SENDKEY_2 }}
+          SERVERCHAN_SENDKEY_3: ${{ secrets.SERVERCHAN_SENDKEY_3 }}
+          SERVERCHAN_SENDKEY_4: ${{ secrets.SERVERCHAN_SENDKEY_4 }}
+          SERVERCHAN_SENDKEY_5: ${{ secrets.SERVERCHAN_SENDKEY_5 }}
+          SERVERCHAN_SENDKEY_6: ${{ secrets.SERVERCHAN_SENDKEY_6 }}
+          SERVERCHAN_SENDKEY_7: ${{ secrets.SERVERCHAN_SENDKEY_7 }}
+          SERVERCHAN_SENDKEY_8: ${{ secrets.SERVERCHAN_SENDKEY_8 }}
+          SERVERCHAN_SENDKEY_9: ${{ secrets.SERVERCHAN_SENDKEY_9 }}
+          SERVERCHAN_SENDKEY_10: ${{ secrets.SERVERCHAN_SENDKEY_10 }}
+          SERVERCHAN_SENDKEY_11: ${{ secrets.SERVERCHAN_SENDKEY_11 }}
+          SERVERCHAN_SENDKEY_12: ${{ secrets.SERVERCHAN_SENDKEY_12 }}
+          SERVERCHAN_SENDKEY_13: ${{ secrets.SERVERCHAN_SENDKEY_13 }}
+          SERVERCHAN_SENDKEY_14: ${{ secrets.SERVERCHAN_SENDKEY_14 }}
+          SERVERCHAN_SENDKEY_15: ${{ secrets.SERVERCHAN_SENDKEY_15 }}
+          SERVERCHAN_SENDKEY_16: ${{ secrets.SERVERCHAN_SENDKEY_16 }}
+          SERVERCHAN_SENDKEY_17: ${{ secrets.SERVERCHAN_SENDKEY_17 }}
+          SERVERCHAN_SENDKEY_18: ${{ secrets.SERVERCHAN_SENDKEY_18 }}
+          SERVERCHAN_SENDKEY_19: ${{ secrets.SERVERCHAN_SENDKEY_19 }}
         run: Rscript monitor.R
 
       - name: Save seen posts
