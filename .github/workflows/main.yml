@@ -49,6 +49,7 @@ jobs:
           SERVERCHAN_SENDKEY_17: ${{ secrets.SERVERCHAN_SENDKEY_17 }}
           SERVERCHAN_SENDKEY_18: ${{ secrets.SERVERCHAN_SENDKEY_18 }}
           SERVERCHAN_SENDKEY_19: ${{ secrets.SERVERCHAN_SENDKEY_19 }}
+          SERVERCHAN_SENDKEY_20: ${{ secrets.SERVERCHAN_SENDKEY_20 }}
         run: Rscript monitor.R
 
       - name: Save seen posts
