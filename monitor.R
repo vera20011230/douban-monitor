@@ -66,7 +66,9 @@ get_group_posts <- function(url) {
 
     cat("✅ 成功访问：", url, "\n")
 
-    page <- read_html(content(response, as = "text", encoding = "UTF-8"))
+    page <- read_html(
+      content(response, as = "text", encoding = "UTF-8")
+    )
 
     rows <- page %>%
       html_elements("#content .olt tr")
@@ -86,7 +88,6 @@ get_group_posts <- function(url) {
       }
 
       title <- html_text2(link_node)
-
       link <- html_attr(link_node, "href")
 
       post_id <- str_extract(
@@ -168,7 +169,11 @@ cat("本次新帖子数量：", nrow(new_posts), "\n")
 if (nrow(new_posts) > 0) {
 
   pattern <- paste(
-    str_replace_all(keywords, "([\\^$.|?*+(){}\\[\\]])", "\\\\\\1"),
+    str_replace_all(
+      keywords,
+      "([\\^$.|?*+(){}\\[\\]])",
+      "\\\\\\1"
+    ),
     collapse = "|"
   )
 
@@ -185,8 +190,11 @@ if (nrow(new_posts) > 0) {
   matched_posts <- data.frame()
 }
 
-cat("新帖子中匹配关键词数量：",
-    nrow(matched_posts), "\n\n")
+cat(
+  "新帖子中匹配关键词数量：",
+  nrow(matched_posts),
+  "\n\n"
+)
 
 # ------------------------------------------
 # 输出匹配结果
@@ -206,6 +214,59 @@ if (nrow(matched_posts) > 0) {
     cat("--------------------------------------\n\n")
   }
 
+  # ----------------------------------------
+  # Server酱通知
+  # ----------------------------------------
+
+  sendkey <- Sys.getenv("SERVERCHAN_SENDKEY")
+
+  if (sendkey == "") {
+
+    cat("⚠️ 未找到 SERVERCHAN_SENDKEY，跳过通知。\n")
+
+  } else {
+
+    cat("📨 正在发送 Server酱通知...\n")
+
+    for (i in seq_len(nrow(matched_posts))) {
+
+      title <- paste0(
+        "豆瓣关键词：",
+        matched_posts$title[i]
+      )
+
+      desp <- paste0(
+        "**标题：** ", matched_posts$title[i], "\n\n",
+        "**作者：** ", matched_posts$author[i], "\n\n",
+        "**时间：** ", matched_posts$time[i], "\n\n",
+        "**链接：** ", matched_posts$link[i]
+      )
+
+      result <- tryCatch({
+
+        response <- POST(
+          "https://sctapi.ftqq.com/",
+          body = list(
+            sendkey = sendkey,
+            title = title,
+            desp = desp
+          ),
+          encode = "form",
+          timeout(30)
+        )
+
+        content(response, as = "text", encoding = "UTF-8")
+
+      }, error = function(e) {
+
+        paste0("发送异常：", conditionMessage(e))
+
+      })
+
+      cat("Server酱返回：", result, "\n")
+    }
+  }
+
 } else {
 
   cat("本次没有新的关键词帖子。\n")
@@ -215,12 +276,22 @@ if (nrow(matched_posts) > 0) {
 # 更新历史记录
 # ------------------------------------------
 
-all_seen <- unique(c(
-  seen_posts,
-  all_posts$post_id
-))
+all_seen <- unique(
+  c(
+    seen_posts,
+    all_posts$post_id
+  )
+)
 
-writeLines(all_seen, seen_file)
+writeLines(
+  all_seen,
+  seen_file
+)
 
-cat("历史记录已更新：", length(all_seen), " 个帖子 ID\n")
+cat(
+  "历史记录已更新：",
+  length(all_seen),
+  " 个帖子 ID\n"
+)
+
 cat("\n测试结束。\n")
