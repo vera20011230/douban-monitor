@@ -13,7 +13,8 @@ group_urls <- c(
   "https://www.douban.com/group/629678/",
   "https://www.douban.com/group/677194/",
   "https://www.douban.com/group/748452/",
-  "https://www.douban.com/group/713320/"
+  "https://www.douban.com/group/713320/",
+  "https://www.douban.com/group/749852/"
 )
 
 keywords <- c(
